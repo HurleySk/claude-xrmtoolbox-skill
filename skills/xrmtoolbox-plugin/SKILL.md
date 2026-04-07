@@ -171,8 +171,38 @@ Run `.\deploy.ps1 -Force` to build and deploy to local XrmToolBox.
 1. `dotnet pack --configuration Release`
 2. Verify the `.nupkg` contains the DLL in `Plugins/`
 
+### `publish`
+Full release workflow. Follow every step in order:
+
+1. **Increment the version** in BOTH locations (they must match):
+   - `.csproj`: `<Version>x.y.z.w</Version>`
+   - `Properties/AssemblyInfo.cs`: `AssemblyVersion` and `AssemblyFileVersion`
+2. **Update release notes** in `.csproj`: `<PackageReleaseNotes>` -- summarize what changed
+3. **Build**: `dotnet build --configuration Release` -- must succeed with 0 errors
+4. **Pack**: `dotnet pack --configuration Release` -- verify DLL is in `Plugins/` inside the `.nupkg`
+5. **Commit**: Stage the changed files and commit with a message like:
+   `Version x.y.z.w: <summary of changes>`
+6. **Push**: `git push`
+7. **Create GitHub release**: `gh release create vx.y.z.w --title "vx.y.z.w" --notes "<changelog>"`
+8. **Publish to NuGet**:
+   ```bash
+   dotnet nuget push bin\Release\YourPlugin.x.y.z.w.nupkg --api-key YOUR_KEY --source https://api.nuget.org/v3/index.json
+   ```
+
+**IMPORTANT**: Always ask the user for the NuGet API key before publishing. Never hardcode or store API keys.
+
 ### `help`
 Show this skill's available commands and XrmToolBox plugin development guidance.
+
+## Version Management
+
+XrmToolBox plugins use 4-part versions: `Major.Minor.Build.Revision` (e.g., `2.0.1.3`).
+
+The version MUST be set in two places and they MUST match:
+1. `.csproj` `<Version>` element
+2. `Properties/AssemblyInfo.cs` `[assembly: AssemblyVersion]` and `[assembly: AssemblyFileVersion]`
+
+When incrementing, bump the last segment for patches/fixes, third segment for features, etc.
 
 ## Common Mistakes to Avoid
 
@@ -181,13 +211,12 @@ Show this skill's available commands and XrmToolBox plugin development guidance.
 - **Blocking the UI thread**: Always use `WorkAsync()` for Dataverse operations. Never call `Service.Execute()` on the UI thread.
 - **Forgetting `ExecuteMethod()`**: Always wrap button handlers with `ExecuteMethod()` to ensure connection is available.
 - **Wrong NuGet package layout**: DLLs must be in `Plugins/` folder, not `lib/`. Use `IncludeBuildOutput=false` and explicit `Pack` items.
+- **Version mismatch**: Forgetting to update version in BOTH `.csproj` and `AssemblyInfo.cs`. They must always match.
+- **Forgetting to update `<PackageReleaseNotes>`**: The release notes in `.csproj` show up on nuget.org and in the XrmToolBox Tool Store.
+- **Publishing without committing first**: Always commit and push before publishing to NuGet so the source matches the published package.
 
 ## Publishing to XrmToolBox Tool Store
 
-The XrmToolBox Tool Store pulls from nuget.org. To publish:
+The XrmToolBox Tool Store automatically discovers packages from nuget.org that have the `XrmToolBox` tag. After publishing with `dotnet nuget push`, it may take a few minutes for the package to appear in the Tool Store.
 
-```bash
-dotnet nuget push bin\Release\YourPlugin.x.y.z.nupkg --api-key YOUR_KEY --source https://api.nuget.org/v3/index.json
-```
-
-The package must have the `XrmToolBox` tag to be discovered.
+The package must have the `XrmToolBox` tag in its `.csproj` `<PackageTags>` to be discovered.
