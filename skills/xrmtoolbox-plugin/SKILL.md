@@ -158,11 +158,42 @@ DLLs must go in `Plugins/` (not `lib/`). Include main DLL and any extra dependen
 Based on the argument provided:
 
 ### `new [plugin-name]`
-1. Clone the template from https://github.com/HurleySk/XrmToolBox-Plugin-Template
-2. Run the find-and-replace for the plugin name tokens
-3. Rename all files
-4. Generate a new GUID for AssemblyInfo.cs
-5. Build to verify
+Scaffold a new XrmToolBox plugin from the GitHub template:
+
+1. **Create the repo** from the template:
+   ```bash
+   gh repo create YOUR_GITHUB_USERNAME/MyXrmToolBoxPlugin --template HurleySk/XrmToolBox-Plugin-Template --public --clone
+   cd MyXrmToolBoxPlugin
+   ```
+2. **Find and replace** these tokens across all files (in this order):
+   | Token | Replace with | Example |
+   |-------|-------------|---------|
+   | `MyXrmToolBoxPlugin` | Full project name | `AttributeExporterXrmToolBoxPlugin` |
+   | `My XrmToolBox Plugin` | Display name in XrmToolBox | `Attribute Metadata Exporter` |
+   | `MyPlugin` | Class prefix | `AttributeExporter` |
+   | `YOUR_GITHUB_USERNAME` | GitHub username | `HurleySk` |
+   | `YOUR_NAME` | Author name | `Samuel Hurley` |
+   | `YOUR_COMPANY` | Company name | `Procentrix` |
+3. **Rename files** to match your plugin name:
+   - `MyXrmToolBoxPlugin.sln` -> `YourName.sln`
+   - `MyXrmToolBoxPlugin.csproj` -> `YourName.csproj`
+   - `MyPluginPlugin.cs` -> `YourPrefixPlugin.cs`
+   - `MyPluginControl.cs` -> `YourPrefixControl.cs`
+   - `MyPluginControl.Designer.cs` -> `YourPrefixControl.Designer.cs`
+   - `MyPluginControl.resx` -> `YourPrefixControl.resx`
+4. **Generate a new GUID** for `Properties/AssemblyInfo.cs`:
+   ```powershell
+   [guid]::NewGuid().ToString()
+   ```
+5. **Replace placeholder icons** in `Resources/` with your own (128x128, 80x80, 32x32 PNG), then update the base64 strings in the plugin entry point:
+   ```powershell
+   [Convert]::ToBase64String([IO.File]::ReadAllBytes("Resources\icon-32.png"))
+   [Convert]::ToBase64String([IO.File]::ReadAllBytes("Resources\icon-80.png"))
+   ```
+6. **Build to verify**: `dotnet build --configuration Release`
+7. **Delete the "Getting Started" section** from the README
+
+See the full template README for details: https://github.com/HurleySk/XrmToolBox-Plugin-Template
 
 ### `deploy`
 Run `.\deploy.ps1 -Force` to build and deploy to local XrmToolBox.
