@@ -2,13 +2,13 @@
   "name": "xrmtoolbox-plugin-dev",
   "version": "1.0.0",
   "description": "Claude Code skill for building XrmToolBox plugins for Dynamics 365 / Dataverse. Provides scaffolding, architecture guidance, packaging, and deployment patterns.",
-  "author": "Samuel Hurley",
+  "author": {
+    "name": "Samuel Hurley",
+    "url": "https://github.com/HurleySk"
+  },
   "license": "MIT",
   "homepage": "https://github.com/HurleySk/claude-xrmtoolbox-skill",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/HurleySk/claude-xrmtoolbox-skill.git"
-  },
+  "repository": "https://github.com/HurleySk/claude-xrmtoolbox-skill",
   "keywords": [
     "xrmtoolbox",
     "dynamics365",
