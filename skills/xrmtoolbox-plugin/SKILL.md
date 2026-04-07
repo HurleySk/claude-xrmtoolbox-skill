@@ -207,6 +207,7 @@ When incrementing, bump the last segment for patches/fixes, third segment for fe
 ## Common Mistakes to Avoid
 
 - **Missing dependency DLLs in NuGet package**: If your plugin uses extra NuGet packages (e.g., CsvHelper), you MUST add their DLLs to the pack ItemGroup in the .csproj AND to `$pluginFiles` in deploy.ps1.
+- **Bundling assemblies that XrmToolBox already provides**: Do NOT ship `System.Threading.Tasks.Extensions.dll`, `Microsoft.Bcl.AsyncInterfaces.dll`, `System.Buffers.dll`, `System.Memory.dll`, `System.Runtime.CompilerServices.Unsafe.dll`, `System.Text.Json.dll`, `System.ValueTuple.dll`, or other framework/SDK assemblies in your NuGet package or deploy script. XrmToolBox provides these in its install root. Duplicating them in the `Plugins/` folder causes `ReflectionTypeLoadException` at startup due to assembly version conflicts. Only bundle DLLs that are unique to your plugin (e.g., CsvHelper).
 - **Using Costura.Fody**: XrmToolBox needs separate DLLs, not merged assemblies. Do not use IL merging.
 - **Blocking the UI thread**: Always use `WorkAsync()` for Dataverse operations. Never call `Service.Execute()` on the UI thread.
 - **Forgetting `ExecuteMethod()`**: Always wrap button handlers with `ExecuteMethod()` to ensure connection is available.
