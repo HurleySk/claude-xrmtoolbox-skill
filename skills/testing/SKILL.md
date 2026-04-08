@@ -394,7 +394,11 @@ test -f "C:/tools/FlaUI-MCP/FlaUI.Mcp.exe" && echo "INSTALLED" || echo "NOT INST
 ```powershell
 powershell -ExecutionPolicy Bypass -File "$HARNESS_REPO\setup-flaui-mcp.ps1"
 ```
-This clones FlaUI-MCP, builds it, publishes to `C:\tools\FlaUI-MCP`, and registers it as the `flaui-mcp` MCP server in Claude Code. Requires .NET 8+ SDK. **Note**: If this is the first time setting up FlaUI-MCP, you may need to restart Claude Code for the MCP server to become available.
+This builds FlaUI-MCP from the harness repo's submodule (or clones the fork), publishes to `C:\tools\FlaUI-MCP`, and registers it as the `flaui-mcp` MCP server in Claude Code. Requires .NET 8+ SDK.
+
+> **IMPORTANT — Restart Required**: After installing FlaUI-MCP for the first time, Claude Code **must be restarted** before the `flaui-mcp` MCP tools become available. If you just ran `setup-flaui-mcp.ps1`, **STOP HERE** and instruct the user to restart Claude Code, then re-run `/testing ui-test`. Do NOT proceed to Step 3 — FlaUI-MCP tools will not work in the current session.
+
+- **Verify after restart**: Confirm FlaUI-MCP is loaded by checking that `windows_list_windows` is available as a tool.
 
 **1c. Locate the plugin DLL.**
 
@@ -403,12 +407,13 @@ First, find the `.csproj` file name to know the DLL name:
 ls "$PLUGIN_DIR"/*.csproj
 ```
 
-The plugin DLL will match the `.csproj` stem. Look for it in `bin/Release`:
+The plugin DLL name matches the `.csproj` stem (e.g., `MyPlugin.csproj` → `MyPlugin.dll`). Search for it directly:
 ```bash
-find "$PLUGIN_DIR" -path "*/bin/Release/*" -name "*.dll" | grep -v "Microsoft\." | grep -v "System\." | grep -v "Newtonsoft" | grep -v "McTools" | grep -v "XrmToolBox\." | head -5
+find "$PLUGIN_DIR/bin/Release" -name "MyPlugin.dll" 2>/dev/null | head -1
 ```
+Replace `MyPlugin.dll` with the actual name derived from the `.csproj`.
 
-- **Check**: Identify the plugin DLL (matches the `.csproj` file name, e.g., `MyPlugin.csproj` → `MyPlugin.dll`).
+- **Check**: The find returns a path.
 - **Fix if not found**: Build the plugin:
 ```bash
 dotnet build "$PLUGIN_DIR"/*.csproj --configuration Release
@@ -447,7 +452,7 @@ Read `$PLUGIN_DIR/test-mockdata.json`. It contains:
 
 The generated mock data covers discovered patterns. You may need to add entries if:
 - The plugin needs specific attribute values (e.g., a grid expects `friendlyname` on solutions)
-- The plugin uses metadata requests that need non-empty results
+- The plugin uses metadata requests — the generator creates entity metadata stubs for discovered entities via the `entityMetadata` JSON property, but you may need to add attributes or additional entities
 - The plugin uses FetchXML with specific expected columns
 - Error appears when running: check `calls.json` for unmatched calls and add matching responses
 
@@ -478,15 +483,19 @@ FlaUI-MCP uses a snapshot-and-ref model: call `windows_snapshot` to get the acce
 - **TextBoxes (txt)**: `windows_fill` with a test value appropriate to the control name (e.g., `txtFilter` → `"test"`)
 - **CheckBoxes (chk)**: `windows_click` to toggle if needed
 - **Numerics (nud)**: Leave at defaults unless testing specific values
+- **Browse buttons**: If a button opens a file dialog, use `windows_file_dialog` after clicking — it waits for the dialog, fills the path, and confirms. Alternatively, if the associated text field (e.g., `txtFilePath`) is not readonly, use `windows_fill` to set the path directly and skip the dialog.
 
 **4c. Click the primary action button.** Use the `primaryAction` field from the control inventory. Find it in the snapshot and `windows_click` it. Common names: `btnLoad`, `btnLoadEntities`, `btnStart`, `btnExport`, `btnExecute`, `btnRetrieve`.
 
-**4d. Wait for completion.** After clicking, wait 2-3 seconds then re-snapshot and check:
-- Has a DataGridView been populated? (Look for row elements under the datagrid in the snapshot)
-- Has a status label text changed? Use `windows_get_text` to read it
-- Is the action button still present and not marked `[disabled]` in the snapshot?
+**4d. Wait for completion.** Use `windows_wait_for_element` instead of arbitrary delays:
+- Wait for a DataGridView to populate: `windows_wait_for_element` with `automationId` of the grid and `condition: "has_text"`
+- Wait for a status label to update: `windows_wait_for_element` with the label's `automationId` and `condition: "has_text"`
+- Wait for a button to re-enable: `windows_wait_for_element` with the button's `automationId` and `condition: "enabled"`
+- Fallback: if no clear condition, wait 2-3 seconds then re-snapshot
 
-**4e. Take post-action screenshot.** Use `windows_screenshot` on the harness window.
+To read DataGridView contents, use `windows_get_table_data` with the grid's ref — it returns headers and rows as a formatted table, much cleaner than parsing the snapshot tree.
+
+**4e. Take post-action screenshot.** Call `windows_focus` on the harness handle first, then `windows_screenshot`.
 
 #### Step 5: Verify Results
 
@@ -510,7 +519,12 @@ Verify:
 - Expected operations were called (e.g., plugin that loads entities should have RetrieveMultiple or RetrieveAllEntitiesRequest)
 - No unexpected unmatched calls (check `WasMatched: false` entries)
 
-**Debugging loop**: If there are unmatched calls, add matching responses to `test-mockdata.json` and re-run from Step 3.
+**Debugging loop**: If there are unmatched calls or the plugin crashes:
+1. Read `calls.json` and identify entries with `"WasMatched": false`
+2. For **CRUD operations** (Create, Retrieve, RetrieveMultiple, Update, Delete, Associate, Disassociate): Add a matching response entry to `test-mockdata.json` with the appropriate `entityName` in the `match` field
+3. For **Execute operations** with a known request type: Add an Execute response entry with `requestType` matching the `RequestTypeName` from `calls.json`
+4. For **metadata requests** (RetrieveAllEntitiesRequest, RetrieveEntityRequest, RetrieveAttributeRequest): These require the `entityMetadata` property in the response JSON (not just `results`). The test harness has a `MetadataJsonConverter` that deserializes entity metadata from JSON. See the sample in `$HARNESS_REPO/samples/basic-mockdata.json` for the format. The `generate-mockdata.ps1` script auto-generates metadata stubs for discovered entities.
+5. Re-run from Step 3 with the updated mock data
 
 #### Step 6: Report
 
@@ -521,6 +535,24 @@ Summarize the test run:
 - **Errors**: any error dialogs or exceptions
 - **Screenshots**: paths to initial and post-action screenshots
 - **Assessment**: pass (plugin loaded, action completed, no errors) or fail (with reason)
+
+#### Known Limitations
+
+- **FlaUI-MCP requires restart after first install**: MCP servers registered mid-session are not available until Claude Code restarts. See Step 1b.
+- **Native file dialogs**: `OpenFileDialog` / `SaveFileDialog` can be automated with `windows_file_dialog`, but if the dialog is non-standard or the associated text field is readonly, this may not work. Pre-fill text fields directly when possible.
+- **Screenshots may capture wrong window**: `windows_screenshot` may occasionally capture the wrong window when multiple windows overlap. Call `windows_focus` before `windows_screenshot` to bring the target to the foreground.
+- **Metadata responses need special JSON format**: `RetrieveAllEntitiesResponse`, `RetrieveEntityResponse`, and similar metadata responses require the `entityMetadata` property in the response JSON (not just `results`). See the debugging loop in Step 5b.
+
+#### Appendix: Extended FlaUI-MCP Tools
+
+These tools are available in the HurleySk fork of FlaUI-MCP (installed via the harness repo's `setup-flaui-mcp.ps1`):
+
+| Tool | Description |
+|------|-------------|
+| `windows_file_dialog` | Complete Open/Save file dialogs by filling the path and confirming. Call after clicking a Browse button. |
+| `windows_wait_for_element` | Wait for an element to meet a condition (exists, enabled, visible, has_text). Use instead of arbitrary waits. |
+| `windows_find_elements` | Search for elements by name, automationId, or controlType. More efficient than full snapshot when you know what to find. |
+| `windows_get_table_data` | Extract DataGridView/Table data as formatted headers + rows. Much cleaner than parsing the snapshot tree. |
 
 #### Appendix: Mock Data Match Criteria
 
