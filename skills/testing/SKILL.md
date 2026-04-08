@@ -452,7 +452,7 @@ Read `$PLUGIN_DIR/test-mockdata.json`. It contains:
 
 The generated mock data covers discovered patterns. You may need to add entries if:
 - The plugin needs specific attribute values (e.g., a grid expects `friendlyname` on solutions)
-- The plugin uses metadata requests — the generator creates entity metadata stubs for discovered entities via the `entityMetadata` JSON property (including `isIntersect` and `manyToManyRelationships` fields), but you may need to add attributes, relationships, or additional entities
+- The plugin uses metadata requests — the generator creates entity metadata stubs for discovered entities via the `entityMetadata` JSON property (including `isIntersect` and `manyToManyRelationships` fields). The generator also discovers N:N relationships from `new Relationship("schema_name")` patterns in plugin source code and populates `manyToManyRelationships` automatically. You may still need to fill in `TODO_entity2` / `TODO_entity2id` placeholders or add additional entities
 - The plugin uses FetchXML with specific expected columns
 - Error appears when running: check `calls.json` for unmatched calls and add matching responses
 
@@ -484,7 +484,7 @@ FlaUI-MCP uses a snapshot-and-ref model: call `windows_snapshot` to get the acce
 **4a. Take initial screenshot and snapshot.** Use `windows_screenshot` then `windows_snapshot` on the harness window handle. The snapshot returns a text tree of all controls with their names and refs. Cross-reference against your control inventory from Step 2b — verify key controls are present.
 
 **4b. Set up input controls** (from the inventory, category = input-*):
-- **Dropdowns (cbo/cmb)**: `windows_click` to expand, re-snapshot to see items, `windows_click` on first item
+- **Dropdowns (cbo/cmb)**: `windows_fill` to clear the text, then `windows_type` with `submit: true` to type the value and press Enter — this triggers `SelectedIndexChanged` for cascading combos. Note: `windows_fill` alone sets text but does NOT fire selection events. Alternatively, `windows_click` to expand, re-snapshot to see items, `windows_click` on the item
 - **TextBoxes (txt)**: `windows_fill` with a test value appropriate to the control name (e.g., `txtFilter` → `"test"`)
 - **CheckBoxes (chk)**: `windows_click` to toggle if needed
 - **Numerics (nud)**: Leave at defaults unless testing specific values
@@ -526,7 +526,7 @@ Verify:
 
 **Debugging loop**: If there are unmatched calls or the plugin crashes:
 1. Read `calls.json` and identify entries with `"WasMatched": false`
-2. For **CRUD operations** (Create, Retrieve, RetrieveMultiple, Update, Delete, Associate, Disassociate): Add a matching response entry to `test-mockdata.json` with the appropriate `entityName` in the `match` field
+2. For **CRUD operations** (Create, Retrieve, RetrieveMultiple, Update, Delete, Associate, Disassociate): Add a matching response entry to `test-mockdata.json` with the appropriate `entityName` in the `match` field. Note: `Execute(AssociateRequest)` and `Execute(DisassociateRequest)` are auto-routed to the Associate/Disassociate handlers, so they match `operation: "Associate"` / `"Disassociate"` entries — no separate Execute entry needed.
 3. For **Execute operations** with a known request type: Add an Execute response entry with `requestType` matching the `RequestTypeName` from `calls.json`
 4. For **metadata requests** (RetrieveAllEntitiesRequest, RetrieveEntityRequest, RetrieveAttributeRequest): These require the `entityMetadata` property in the response JSON (not just `results`). The test harness has a `MetadataJsonConverter` that deserializes entity metadata from JSON, including `isIntersect`, `manyToManyRelationships`, and `attributes`. See the sample in `$HARNESS_REPO/samples/basic-mockdata.json` for the format. The `generate-mockdata.ps1` script auto-generates metadata stubs for discovered entities.
 5. Re-run from Step 3 with the updated mock data
@@ -544,7 +544,7 @@ Summarize the test run:
 #### Known Limitations
 
 - **FlaUI-MCP requires restart after first install**: MCP servers registered mid-session are not available until Claude Code restarts. See Step 1b.
-- **Native file dialogs**: `OpenFileDialog` / `SaveFileDialog` can be automated with `windows_file_dialog`, but if the dialog is non-standard or the associated text field is readonly, this may not work. Pre-fill text fields directly when possible.
+- **Native file dialogs**: `OpenFileDialog` / `SaveFileDialog` can be automated with `windows_file_dialog`, but you **must call it immediately** after clicking the Browse button. If you call other tools first (e.g., `windows_snapshot`, `windows_list_windows`), they will timeout because modal dialogs block UI Automation tree traversal. FlaUI-MCP has a 30-second global timeout — if a tool times out with a message about modal dialogs, use `windows_file_dialog` to dismiss the dialog. If the associated text field is not readonly, you can skip the dialog entirely by using `windows_fill` to set the path directly.
 - **Screenshots may capture wrong window**: `windows_screenshot` may occasionally capture the wrong window when multiple windows overlap. Call `windows_focus` before `windows_screenshot` to bring the target to the foreground.
 - **Metadata responses need special JSON format**: `RetrieveAllEntitiesResponse`, `RetrieveEntityResponse`, and similar metadata responses require the `entityMetadata` property in the response JSON (not just `results`). Supported fields include `isIntersect` and `manyToManyRelationships` for N:N relationship plugins. See the debugging loop in Step 5b.
 
