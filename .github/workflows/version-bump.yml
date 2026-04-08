@@ -50,6 +50,12 @@ jobs:
           git commit -m "[auto-bump] v${{ steps.bump.outputs.version }}"
           git push
 
+      - name: Create version tag
+        if: steps.bump.outputs.version != ''
+        run: |
+          git tag "v${{ steps.bump.outputs.version }}"
+          git push origin "v${{ steps.bump.outputs.version }}"
+
   notify-marketplace:
     needs: version-bump
     runs-on: ubuntu-latest
