@@ -168,7 +168,7 @@ Read `$PLUGIN_DIR/test-control-inventory.json`. Use the `summary` to assess:
 **3a. Launch the harness.**
 
 ```bash
-"$HARNESS_EXE" --plugin "$PLUGIN_DLL" --mockdata "$PLUGIN_DIR/test-mockdata.json" --screenshots "$PLUGIN_DIR/screenshots" --record "$PLUGIN_DIR/calls.json" &
+"$HARNESS_EXE" --plugin "$PLUGIN_DLL" --mockdata "$PLUGIN_DIR/test-mockdata.json" --screenshots "$PLUGIN_DIR/screenshots" --record "$PLUGIN_DIR/calls.json" --suppress-dialogs &
 ```
 
 Wait 3 seconds (`sleep 3`), then verify via FlaUI-MCP: call `windows_list_windows` and look for a window with title containing `"Test Harness"`. Remember its handle (e.g., `w1`).

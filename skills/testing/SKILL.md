@@ -390,7 +390,8 @@ test -f "C:/tools/FlaUI-MCP/version.json" && cat "C:/tools/FlaUI-MCP/version.jso
 ```
 
 - **Check**: Output contains a JSON object with a `tools` array listing all 4 extended tools (`windows_file_dialog`, `windows_wait_for_element`, `windows_find_elements`, `windows_get_table_data`).
-- **Fix if `NOT_INSTALLED` or `INSTALLED_NO_VERSION`**: Run the setup script from the harness repo. It automatically stops a running FlaUI-MCP process if it holds a file lock, then rebuilds:
+- **Fix if `NOT_INSTALLED`**: Run the setup script from the harness repo. It automatically stops a running FlaUI-MCP process if it holds a file lock, then rebuilds:
+- **Fix if `INSTALLED_NO_VERSION`**: FlaUI-MCP works but was installed manually (not via the setup script). Verify tool availability by checking that `windows_list_windows` is callable. If tools work, proceed — the version check is informational. If tools are missing, run the setup script:
 ```powershell
 powershell -ExecutionPolicy Bypass -File "$HARNESS_REPO\setup-flaui-mcp.ps1"
 ```
@@ -461,10 +462,10 @@ The generated mock data covers discovered patterns. You may need to add entries 
 Run the harness in the background. The `--record` path is relative to where you launch the command:
 ```bash
 # Mock service (default — offline testing)
-"$HARNESS_EXE" --plugin "$PLUGIN_DLL" --mockdata "$PLUGIN_DIR/test-mockdata.json" --screenshots "$PLUGIN_DIR/screenshots" --record "$PLUGIN_DIR/calls.json" &
+"$HARNESS_EXE" --plugin "$PLUGIN_DLL" --mockdata "$PLUGIN_DIR/test-mockdata.json" --screenshots "$PLUGIN_DIR/screenshots" --record "$PLUGIN_DIR/calls.json" --suppress-dialogs &
 
 # Live Dataverse connection (if user provides a connection string)
-"$HARNESS_EXE" --plugin "$PLUGIN_DLL" --connection-string "$CONN_STR" --screenshots "$PLUGIN_DIR/screenshots" --record "$PLUGIN_DIR/calls.json" &
+"$HARNESS_EXE" --plugin "$PLUGIN_DLL" --connection-string "$CONN_STR" --screenshots "$PLUGIN_DIR/screenshots" --record "$PLUGIN_DIR/calls.json" --suppress-dialogs &
 # Or set XRMTOOLBOX_CONNECTION_STRING env var to avoid exposing secrets in process listings
 ```
 
@@ -605,7 +606,8 @@ Responses are matched in order; first match wins. Use `resultsFile` for large pa
 | `--height <px>` | Window height | 768 |
 | `--screenshots, -s <dir>` | Screenshot output directory | |
 | `--org <name>` | Organization display name | Mock Organization |
-| `--record, -r <path>` | Record SDK calls to JSON on exit | |
+| `--record, -r <path>` | Record SDK calls to JSON (auto-flushes every 2s) | |
+| `--suppress-dialogs` | Auto-dismiss modal MessageBox dialogs (logs text to stderr). Prevents plugin error dialogs from blocking FlaUI UIA operations. Does NOT dismiss file dialogs. | |
 | `--no-autoconnect` | Don't inject service on load | |
 
 #### Appendix: Common Request Type Full Names
@@ -638,7 +640,8 @@ Responses are matched in order; first match wins. Use `resultsFile` for large pa
 #### Appendix: Tips
 
 - Press **F12** in the harness window to take a manual screenshot
-- Both mock and live services record every SDK call — `calls.json` auto-flushes every 5 seconds and is also saved on crash (via global exception handlers), so data survives process death. A final flush occurs on clean window close.
+- Both mock and live services record every SDK call — `calls.json` auto-flushes every 2 seconds and is also saved on form close, crash, and process exit (via multiple safety handlers), so data survives even abrupt termination via `windows_close`.
+- Always use `--suppress-dialogs` when running automated tests. Without it, a plugin error (e.g., from WorkAsync) shows a modal MessageBox that blocks ALL FlaUI UIA operations — clicks, snapshots, and even `windows_list_windows` will timeout. With `--suppress-dialogs`, the harness auto-dismisses these dialogs and logs their text to stderr.
 - Use `"fault"` entries in mock data to test error handling paths
 - Use `"delay"` to simulate slow responses and test loading indicators
 
