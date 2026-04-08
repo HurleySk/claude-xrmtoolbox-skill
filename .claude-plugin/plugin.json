@@ -1,6 +1,6 @@
 {
   "name": "xrmtoolbox",
-  "version": "2.3.3",
+  "version": "2.3.4",
   "description": "Claude Code skills for XrmToolBox plugin development, testing, and UI review. Build, deploy, pack, publish, scaffold tests, mock IOrganizationService, smoke tests, UI testing, and UI best practices auditing.",
   "author": {
     "name": "Samuel Hurley",
