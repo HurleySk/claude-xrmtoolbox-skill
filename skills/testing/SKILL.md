@@ -383,20 +383,20 @@ dotnet build --configuration Release
 ```
 Then re-run the find to get `$HARNESS_EXE` and `$HARNESS_REPO`.
 
-**1b. Check that FlaUI-MCP is installed and registered.**
+**1b. Check that FlaUI-MCP is installed with extended tools.**
 
 ```bash
-test -f "C:/tools/FlaUI-MCP/FlaUI.Mcp.exe" && echo "INSTALLED" || echo "NOT INSTALLED"
+test -f "C:/tools/FlaUI-MCP/version.json" && cat "C:/tools/FlaUI-MCP/version.json" || (test -f "C:/tools/FlaUI-MCP/FlaUI.Mcp.exe" && echo "INSTALLED_NO_VERSION" || echo "NOT_INSTALLED")
 ```
 
-- **Check**: Output says `INSTALLED`.
-- **Fix if NOT INSTALLED**: Run the setup script from the harness repo:
+- **Check**: Output contains a JSON object with a `tools` array listing all 4 extended tools (`windows_file_dialog`, `windows_wait_for_element`, `windows_find_elements`, `windows_get_table_data`).
+- **Fix if `NOT_INSTALLED` or `INSTALLED_NO_VERSION`**: Run the setup script from the harness repo. It automatically stops a running FlaUI-MCP process if it holds a file lock, then rebuilds:
 ```powershell
 powershell -ExecutionPolicy Bypass -File "$HARNESS_REPO\setup-flaui-mcp.ps1"
 ```
-This builds FlaUI-MCP from the harness repo's submodule (or clones the fork), publishes to `C:\tools\FlaUI-MCP`, and registers it as the `flaui-mcp` MCP server in Claude Code. Requires .NET 8+ SDK.
+This builds FlaUI-MCP from the harness repo's submodule (or clones the fork), publishes to `C:\tools\FlaUI-MCP`, stamps a `version.json`, and registers it as the `flaui-mcp` MCP server in Claude Code. Requires .NET 8+ SDK.
 
-> **IMPORTANT — Restart Required**: After installing FlaUI-MCP for the first time, Claude Code **must be restarted** before the `flaui-mcp` MCP tools become available. If you just ran `setup-flaui-mcp.ps1`, **STOP HERE** and instruct the user to restart Claude Code, then re-run `/testing ui-test`. Do NOT proceed to Step 3 — FlaUI-MCP tools will not work in the current session.
+> **IMPORTANT — Restart Required**: After installing or updating FlaUI-MCP, Claude Code **must be restarted** so the MCP server relaunches with the new binary. If you just ran `setup-flaui-mcp.ps1`, **STOP HERE** and instruct the user to restart Claude Code, then re-run `/testing ui-test`. Do NOT proceed to Step 3 — FlaUI-MCP tools will not work in the current session.
 
 - **Verify after restart**: Confirm FlaUI-MCP is loaded by checking that `windows_list_windows` is available as a tool.
 
@@ -543,7 +543,7 @@ Summarize the test run:
 
 #### Known Limitations
 
-- **FlaUI-MCP requires restart after first install**: MCP servers registered mid-session are not available until Claude Code restarts. See Step 1b.
+- **FlaUI-MCP requires restart after install/update**: MCP servers registered or updated mid-session are not available until Claude Code restarts. The setup script auto-stops a running FlaUI-MCP process to release file locks, but a restart is still needed. See Step 1b.
 - **Native file dialogs**: `OpenFileDialog` / `SaveFileDialog` can be automated with `windows_file_dialog`, but you **must call it immediately** after clicking the Browse button. If you call other tools first (e.g., `windows_snapshot`, `windows_list_windows`), they will timeout because modal dialogs block UI Automation tree traversal. FlaUI-MCP has a 30-second global timeout — if a tool times out with a message about modal dialogs, use `windows_file_dialog` to dismiss the dialog. If the associated text field is not readonly, you can skip the dialog entirely by using `windows_fill` to set the path directly.
 - **Screenshots may capture wrong window**: `windows_screenshot` may occasionally capture the wrong window when multiple windows overlap. Call `windows_focus` before `windows_screenshot` to bring the target to the foreground.
 - **Metadata responses need special JSON format**: `RetrieveAllEntitiesResponse`, `RetrieveEntityResponse`, and similar metadata responses require the `entityMetadata` property in the response JSON (not just `results`). Supported fields include `isIntersect` and `manyToManyRelationships` for N:N relationship plugins. See the debugging loop in Step 5b.
