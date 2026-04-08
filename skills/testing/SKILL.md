@@ -452,7 +452,7 @@ Read `$PLUGIN_DIR/test-mockdata.json`. It contains:
 
 The generated mock data covers discovered patterns. You may need to add entries if:
 - The plugin needs specific attribute values (e.g., a grid expects `friendlyname` on solutions)
-- The plugin uses metadata requests — the generator creates entity metadata stubs for discovered entities via the `entityMetadata` JSON property (including `isIntersect` and `manyToManyRelationships` fields). The generator also discovers N:N relationships from `new Relationship("schema_name")` patterns in plugin source code and populates `manyToManyRelationships` automatically. You may still need to fill in `TODO_entity2` / `TODO_entity2id` placeholders or add additional entities
+- The plugin uses metadata requests — the generator creates entity metadata stubs for discovered entities via the `entityMetadata` JSON property (including `isIntersect` and `manyToManyRelationships` fields). The generator discovers N:N relationships from `new Relationship("schema_name")` patterns and resolves both entity1 and entity2 from the schema name against discovered entities. It also derives intersect entity names by stripping `_association` / `_relationship` suffixes. If only one entity can be resolved, the other is marked `TODO_SET_entity2` for manual completion.
 - The plugin uses FetchXML with specific expected columns
 - Error appears when running: check `calls.json` for unmatched calls and add matching responses
 
@@ -527,8 +527,19 @@ Verify:
 **Debugging loop**: If there are unmatched calls or the plugin crashes:
 1. Read `calls.json` and identify entries with `"WasMatched": false`
 2. For **CRUD operations** (Create, Retrieve, RetrieveMultiple, Update, Delete, Associate, Disassociate): Add a matching response entry to `test-mockdata.json` with the appropriate `entityName` in the `match` field. Note: `Execute(AssociateRequest)` and `Execute(DisassociateRequest)` are auto-routed to the Associate/Disassociate handlers, so they match `operation: "Associate"` / `"Disassociate"` entries — no separate Execute entry needed.
-3. For **Execute operations** with a known request type: Add an Execute response entry with `requestType` matching the `RequestTypeName` from `calls.json`
-4. For **metadata requests** (RetrieveAllEntitiesRequest, RetrieveEntityRequest, RetrieveAttributeRequest): These require the `entityMetadata` property in the response JSON (not just `results`). The test harness has a `MetadataJsonConverter` that deserializes entity metadata from JSON, including `isIntersect`, `manyToManyRelationships`, and `attributes`. See the sample in `$HARNESS_REPO/samples/basic-mockdata.json` for the format. The `generate-mockdata.ps1` script auto-generates metadata stubs for discovered entities.
+3. For **Execute operations** with a known SDK request type: Add an Execute response entry with `requestType` matching the `RequestTypeName` from `calls.json`
+4. For **custom actions** (`new OrganizationRequest("ActionName")`): In `calls.json`, the `RequestTypeName` field shows the action name (not the .NET type). Use `requestName` in the match: `"match": { "requestName": "ActionName" }`. The `requestType` criterion also works for custom actions as a fallback.
+5. For **metadata requests** (RetrieveAllEntitiesRequest, RetrieveEntityRequest, RetrieveAttributeRequest): These require the `entityMetadata` property in the response JSON (not just `results`). The test harness has a `MetadataJsonConverter` that deserializes entity metadata from JSON, including `isIntersect`, `manyToManyRelationships`, and `attributes`. See the sample in `$HARNESS_REPO/samples/basic-mockdata.json` for the format. The `generate-mockdata.ps1` script auto-generates metadata stubs for discovered entities.
+6. For **AliasedValue attributes** (from FetchXML joins or link-entities): Use this JSON format in entity attributes:
+   ```json
+   "contact1.contactid": {
+     "type": "AliasedValue",
+     "entityLogicalName": "contact",
+     "attributeLogicalName": "contactid",
+     "value": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+   }
+   ```
+   The `value` can be any supported type (string, GUID, EntityReference, OptionSetValue, etc.).
 5. Re-run from Step 3 with the updated mock data
 
 #### Step 6: Report
@@ -544,8 +555,20 @@ Summarize the test run:
 #### Known Limitations
 
 - **FlaUI-MCP requires restart after install/update**: MCP servers registered or updated mid-session are not available until Claude Code restarts. The setup script auto-stops a running FlaUI-MCP process to release file locks, but a restart is still needed. See Step 1b.
-- **Native file dialogs**: `OpenFileDialog` / `SaveFileDialog` can be automated with `windows_file_dialog`, but you **must call it immediately** after clicking the Browse button. If you call other tools first (e.g., `windows_snapshot`, `windows_list_windows`), they will timeout because modal dialogs block UI Automation tree traversal. FlaUI-MCP has a 30-second global timeout — if a tool times out with a message about modal dialogs, use `windows_file_dialog` to dismiss the dialog. If the associated text field is not readonly, you can skip the dialog entirely by using `windows_fill` to set the path directly.
-- **Screenshots may capture wrong window**: `windows_screenshot` may occasionally capture the wrong window when multiple windows overlap. Call `windows_focus` before `windows_screenshot` to bring the target to the foreground.
+- **Native file dialogs**: `OpenFileDialog` / `SaveFileDialog` can be automated with `windows_file_dialog`, but you **must call it immediately** after clicking the Browse button. If you call other tools first (e.g., `windows_snapshot`, `windows_list_windows`), they will timeout because modal dialogs block UI Automation tree traversal. FlaUI-MCP now retries finding the filename edit control for modal dialogs, but if it still times out, use the **PowerShell SendKeys workaround** as a fallback:
+  ```powershell
+  Add-Type -AssemblyName Microsoft.VisualBasic
+  [Microsoft.VisualBasic.Interaction]::AppActivate('Dialog Title')
+  Start-Sleep -Milliseconds 500
+  Add-Type -AssemblyName System.Windows.Forms
+  [System.Windows.Forms.SendKeys]::SendWait('C:\path\to\file.csv')
+  Start-Sleep -Milliseconds 300
+  [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
+  ```
+  If the associated text field is not readonly, skip the dialog entirely by using `windows_fill` to set the path directly.
+- **Screenshots may capture wrong window**: `windows_screenshot` now auto-focuses the window when a handle is provided, but may still occasionally capture the wrong window with overlapping windows. Call `windows_focus` before `windows_screenshot` if issues persist.
+- **ComboBox controls**: **Never use `windows_fill` on ComboBox controls** — it clears the selected item binding and breaks `SelectedIndexChanged` events. Only use `windows_type` with `submit: true`, or expand with `windows_click` then click the item. `windows_get_text` on ComboBox now uses the Selection pattern and LegacyIAccessible for more reliable value extraction.
+- **DataGridView cell values**: `windows_get_table_data` now falls back to the LegacyIAccessible pattern for WinForms DataGridView cells that don't expose values via the standard Value pattern.
 - **Metadata responses need special JSON format**: `RetrieveAllEntitiesResponse`, `RetrieveEntityResponse`, and similar metadata responses require the `entityMetadata` property in the response JSON (not just `results`). Supported fields include `isIntersect` and `manyToManyRelationships` for N:N relationship plugins. See the debugging loop in Step 5b.
 
 #### Appendix: Extended FlaUI-MCP Tools
@@ -564,10 +587,10 @@ These tools are available in the HurleySk fork of FlaUI-MCP (installed via the h
 | Key | Description |
 |-----|-------------|
 | `entityName` | Match by entity logical name |
-| `requestType` | Match Execute requests by full type name (e.g., `Microsoft.Crm.Sdk.Messages.WhoAmIRequest`) |
+| `requestType` | Match Execute requests by full type name (e.g., `Microsoft.Crm.Sdk.Messages.WhoAmIRequest`). Also matches `RequestName` for custom actions (base `OrganizationRequest`) |
+| `requestName` | Match Execute requests by `OrganizationRequest.RequestName` (for custom actions like `new OrganizationRequest("MyAction")`) |
 | `queryExpressionEntity` | Match QueryExpression by entity name |
 | `fetchXmlContains` | Match FetchExpression containing a substring |
-| `*` | Wildcard — matches anything |
 
 Responses are matched in order; first match wins. Use `resultsFile` for large payloads (metadata responses) in separate JSON files.
 
@@ -602,7 +625,7 @@ Responses are matched in order; first match wins. Use `resultsFile` for large pa
 | Prefix | Control Type | FlaUI-MCP Tool |
 |--------|-------------|---------------|
 | btn | Button | `windows_click` |
-| dgv | DataGridView | `windows_snapshot` (read tree), `windows_get_text` (cells) |
+| dgv | DataGridView | `windows_get_table_data` (structured data), `windows_snapshot` (read tree) |
 | cbo, cmb | ComboBox | `windows_click` (expand + select item) |
 | txt | TextBox | `windows_fill` |
 | chk | CheckBox | `windows_click` (toggle) |
@@ -615,7 +638,7 @@ Responses are matched in order; first match wins. Use `resultsFile` for large pa
 #### Appendix: Tips
 
 - Press **F12** in the harness window to take a manual screenshot
-- Both mock and live services record every SDK call — `calls.json` is written when the harness window closes (live calls also record success/failure status)
+- Both mock and live services record every SDK call — `calls.json` auto-flushes every 5 seconds and is also saved on crash (via global exception handlers), so data survives process death. A final flush occurs on clean window close.
 - Use `"fault"` entries in mock data to test error handling paths
 - Use `"delay"` to simulate slow responses and test loading indicators
 
