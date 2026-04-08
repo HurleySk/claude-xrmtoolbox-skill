@@ -195,7 +195,7 @@ Drive the UI through multiple states and capture screenshots + snapshots at each
 | LIVE-LAYOUT-01 | Controls don't overlap or clip | In the snapshot, check that no two sibling controls share the same bounding rectangle region. | Warning |
 | LIVE-LAYOUT-02 | Reasonable spacing between controls | Check bounding rectangles — controls should have at least 4px gap between them. | Suggestion |
 | LIVE-CONN-01 | Connection status visible | Look for a label or status element showing "Not connected", "Disconnected", or similar. | Warning |
-| LIVE-CONN-02 | Action buttons disabled | Use `windows_find_elements` with `controlType: "Button"` and check `IsEnabled` property. Primary action buttons should be disabled before connection. | Warning |
+| LIVE-CONN-02 | Action buttons disabled | In the `windows_snapshot` tree, find Button elements and check their `IsEnabled` property. Primary action buttons should be disabled before connection. | Warning |
 | LIVE-ACCESS-01 | Tab order is logical | Note the order of interactive elements (buttons, textboxes, dropdowns, checkboxes) in the snapshot tree — this reflects tab order. Controls should flow top-to-bottom, left-to-right. | Suggestion |
 
 **4b. Connected State (after harness auto-connects with mock service).**
@@ -217,7 +217,7 @@ The harness auto-connects unless `--no-autoconnect` was passed. The connection h
    - **TextBoxes** (category `input-text`): `windows_fill` with a test value appropriate to the control name (e.g., `txtFilter` → `"test"`, `txtFilePath` → a temp file path).
    - **CheckBoxes** (category `input-toggle`): Leave at defaults unless they gate the primary action.
 2. Click the `primaryAction` button from the control inventory using `windows_click`.
-3. Wait for completion using `windows_wait_for_element` (wait for grid to populate, status label to update, or button to re-enable).
+3. Wait for completion: `sleep 3`, then call `windows_snapshot`. If the UI still shows a loading state (e.g., progress bar visible, button still disabled), wait another 2 seconds and re-snapshot. Repeat up to 3 times.
 4. Call `windows_screenshot` — save as "03-populated-state".
 5. Call `windows_snapshot` — capture the populated tree.
 
@@ -225,8 +225,8 @@ The harness auto-connects unless `--no-autoconnect` was passed. The connection h
 
 | Check ID | What to Look For | How to Detect | Severity |
 |----------|-----------------|---------------|----------|
-| LIVE-DATA-01 | Grid headers are descriptive | Use `windows_get_table_data` on the grid. Column headers should not be "Column1", "Column2" — they should be meaningful names. | Warning |
-| LIVE-DATA-02 | Data is populated | Grid should have at least one row of data (from mock data). | Warning |
+| LIVE-DATA-01 | Grid headers are descriptive | In the `windows_snapshot` tree, find the DataGridView element and examine its Header children. Column headers should not be "Column1", "Column2" — they should be meaningful names. | Warning |
+| LIVE-DATA-02 | Data is populated | In the `windows_snapshot` tree, the DataGridView should have DataItem children (rows) with data from mock data. | Warning |
 | LIVE-FEED-01 | Status updated after operation | Use `windows_get_text` on status labels. They should reflect the completed operation (e.g., "Loaded 1 record"). | Suggestion |
 | LIVE-FEED-02 | Button text reflects state | After loading data, check if the primary action button changed text (e.g., "Load" → "Reload"). | Suggestion |
 
@@ -431,14 +431,14 @@ Prerequisites (auto-installed if missing):
 | `windows_list_windows` | Find the test harness window handle |
 | `windows_focus` | Bring harness to foreground before screenshots |
 | `windows_screenshot` | Capture UI state at each review phase |
-| `windows_snapshot` | Get accessibility tree for element analysis |
+| `windows_snapshot` | Get accessibility tree for element analysis, find controls, check button states, read grid data |
 | `windows_click` | Interact with buttons, dropdowns |
 | `windows_fill` | Set input values for populated state |
 | `windows_get_text` | Read status labels, connection indicators |
-| `windows_get_table_data` | Read grid headers and data |
-| `windows_find_elements` | Search for specific control types |
-| `windows_wait_for_element` | Wait for UI changes after actions |
+| `windows_batch` | Execute multiple actions (click, fill, wait) in a single call for efficiency |
 | `windows_close` | Close harness to trigger calls.json write |
+
+> **Note:** Some tools referenced in older documentation (`windows_get_table_data`, `windows_find_elements`, `windows_wait_for_element`, `windows_file_dialog`) are planned but not yet implemented. See [xrmtoolbox-testing-toolkit#4](https://github.com/HurleySk/xrmtoolbox-testing-toolkit/issues/4). Use `windows_snapshot` + manual tree parsing and `sleep` + re-snapshot polling as workarounds.
 
 ## Appendix: Common Patterns in Well-Designed Plugins
 
