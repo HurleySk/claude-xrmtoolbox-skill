@@ -438,7 +438,7 @@ Prerequisites (auto-installed if missing):
 | `windows_batch` | Execute multiple actions (click, fill, wait) in a single call for efficiency |
 | `windows_close` | Close harness to trigger calls.json write |
 
-> **Note:** Some tools referenced in older documentation (`windows_get_table_data`, `windows_find_elements`, `windows_wait_for_element`, `windows_file_dialog`) are planned but not yet implemented. See [xrmtoolbox-testing-toolkit#4](https://github.com/HurleySk/xrmtoolbox-testing-toolkit/issues/4). Use `windows_snapshot` + manual tree parsing and `sleep` + re-snapshot polling as workarounds.
+> **Note:** Extended tools (`windows_get_table_data`, `windows_find_elements`, `windows_wait_for_element`, `windows_file_dialog`) are available in the HurleySk FlaUI-MCP fork. They require the fork to be installed (the testing skill's Step 1b handles this). If these tools are not available, use `windows_snapshot` + manual tree parsing and `sleep` + re-snapshot polling as workarounds.
 
 ## Appendix: Common Patterns in Well-Designed Plugins
 

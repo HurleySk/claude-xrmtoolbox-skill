@@ -488,7 +488,7 @@ FlaUI-MCP uses a snapshot-and-ref model: call `windows_snapshot` to get the acce
 - **TextBoxes (txt)**: `windows_fill` with a test value appropriate to the control name (e.g., `txtFilter` → `"test"`)
 - **CheckBoxes (chk)**: `windows_click` to toggle if needed
 - **Numerics (nud)**: Leave at defaults unless testing specific values
-- **Browse buttons**: If a button opens a file dialog, use `windows_file_dialog` after clicking — it waits for the dialog, fills the path, and confirms. Alternatively, if the associated text field (e.g., `txtFilePath`) is not readonly, use `windows_fill` to set the path directly and skip the dialog.
+- **Browse buttons**: If a button opens a file dialog, use `windows_file_dialog` after clicking — it waits for the dialog (using Win32 fallback for WinForms modals), fills the path, and confirms. Alternatively, if the associated text field (e.g., `txtFilePath`) is not readonly, use `windows_fill` to set the path directly and skip the dialog entirely.
 
 **4c. Click the primary action button.** Use the `primaryAction` field from the control inventory. Find it in the snapshot and `windows_click` it. Common names: `btnLoad`, `btnLoadEntities`, `btnStart`, `btnExport`, `btnExecute`, `btnRetrieve`.
 
@@ -555,7 +555,7 @@ Summarize the test run:
 #### Known Limitations
 
 - **FlaUI-MCP requires restart after install/update**: MCP servers registered or updated mid-session are not available until Claude Code restarts. The setup script auto-stops a running FlaUI-MCP process to release file locks, but a restart is still needed. See Step 1b.
-- **Native file dialogs**: `OpenFileDialog` / `SaveFileDialog` can be automated with `windows_file_dialog`, but you **must call it immediately** after clicking the Browse button. If you call other tools first (e.g., `windows_snapshot`, `windows_list_windows`), they will timeout because modal dialogs block UI Automation tree traversal. FlaUI-MCP now retries finding the filename edit control for modal dialogs, but if it still times out, use the **PowerShell SendKeys workaround** as a fallback:
+- **Native file dialogs**: `OpenFileDialog` / `SaveFileDialog` can be automated with `windows_file_dialog` — call it after clicking the Browse button. FlaUI-MCP uses a Win32 `EnumWindows` fallback to find the dialog when UIA tree traversal is blocked by WinForms modals, so it works reliably even when the parent UI thread is blocked. If `windows_file_dialog` still times out in rare cases, use the **PowerShell SendKeys workaround** as a last resort:
   ```powershell
   Add-Type -AssemblyName Microsoft.VisualBasic
   [Microsoft.VisualBasic.Interaction]::AppActivate('Dialog Title')
