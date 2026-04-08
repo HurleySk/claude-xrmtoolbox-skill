@@ -482,7 +482,17 @@ If found, the plugin loaded successfully.
 
 FlaUI-MCP uses a snapshot-and-ref model: call `windows_snapshot` to get the accessibility tree with element refs (e.g., `w1e5`), then use those refs with `windows_click`, `windows_fill`, `windows_get_text`, etc. **Element refs change after each snapshot**, so always re-snapshot after UI changes.
 
-**4a. Take initial screenshot and snapshot.** Use `windows_screenshot` then `windows_snapshot` on the harness window handle. The snapshot returns a text tree of all controls with their names and refs. Cross-reference against your control inventory from Step 2b — verify key controls are present.
+**4a. Take initial screenshot and snapshot.** Use `windows_screenshot` then `windows_snapshot` on the harness window handle.
+
+> **VISUAL CHECK (mandatory):** After EVERY screenshot, you MUST describe in detail what you see before taking any action:
+> 1. List the visible controls, their labels, and current state (enabled/disabled, text content, selected values)
+> 2. Note anything unexpected — error messages, missing controls, layout issues, modal dialogs
+> 3. Compare what you see against what you expected at this point in the workflow
+> 4. Only then decide your next action based on what you actually observed, not what you assumed
+>
+> This applies to ALL screenshots throughout the test — initial, post-action, and any taken for debugging. Do not skip this step.
+
+The snapshot returns a text tree of all controls with their names and refs. Cross-reference against your control inventory from Step 2b — verify key controls are present.
 
 **4b. Set up input controls** (from the inventory, category = input-*):
 - **Dropdowns (cbo/cmb)**: `windows_fill` to clear the text, then `windows_type` with `submit: true` to type the value and press Enter — this triggers `SelectedIndexChanged` for cascading combos. Note: `windows_fill` alone sets text but does NOT fire selection events. Alternatively, `windows_click` to expand, re-snapshot to see items, `windows_click` on the item
@@ -501,7 +511,7 @@ FlaUI-MCP uses a snapshot-and-ref model: call `windows_snapshot` to get the acce
 
 To read DataGridView contents, use `windows_get_table_data` with the grid's ref — it returns headers and rows as a formatted table, much cleaner than parsing the snapshot tree.
 
-**4e. Take post-action screenshot.** Call `windows_focus` on the harness handle first, then `windows_screenshot`.
+**4e. Take post-action screenshot.** Call `windows_focus` on the harness handle first, then `windows_screenshot`. Perform the **VISUAL CHECK** — describe what changed in the UI compared to your pre-action state. Did the grid populate? Did a status message appear? Is there an error indicator? What does the UI tell you about whether the action succeeded?
 
 #### Step 5: Verify Results
 
@@ -509,6 +519,7 @@ To read DataGridView contents, use `windows_get_table_data` with the grid's ref 
 - Read text from status labels with `windows_get_text`
 - Check for modal error dialogs with `windows_list_windows` — look for new windows with "Error" in the title
 - Re-snapshot with `windows_snapshot` and look at the datagrid tree for row data
+- **Check for auto-dismissed dialogs:** If `--suppress-dialogs` is active, look in `$PLUGIN_DIR/screenshots/` for files named `dialog_*.png` — these are screenshots captured just before a modal dialog was auto-dismissed. Read each one and perform a **VISUAL CHECK** to understand what error the plugin showed. Also check stderr output for `[DialogSuppressor]` log lines with the dialog title and body text.
 
 **5b. Close the harness and check SDK call recording.**
 

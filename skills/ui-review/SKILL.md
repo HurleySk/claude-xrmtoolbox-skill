@@ -182,6 +182,14 @@ Wait 3 seconds (`sleep 3`), then verify via FlaUI-MCP: call `windows_list_window
 
 Drive the UI through multiple states and capture screenshots + snapshots at each state. For each state, apply the live UI checks.
 
+> **VISUAL CHECK (mandatory):** After EVERY screenshot, you MUST describe in detail what you see before taking any action or running checks:
+> 1. List the visible controls, their labels, and current state (enabled/disabled, text content, selected values)
+> 2. Note anything unexpected — error messages, missing controls, layout issues, overlapping elements
+> 3. Compare what you see against what you expected at this point
+> 4. Only then proceed to the structured checks below
+>
+> This applies to ALL screenshots throughout the review. Do not skip this step — your visual assessment is the core value of a UI review.
+
 **4a. Initial State (disconnected/empty).**
 
 1. Call `windows_focus` on the harness handle.
