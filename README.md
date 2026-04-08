@@ -1,45 +1,62 @@
-# Claude Code XrmToolBox Plugin Skill
+# Claude Code XrmToolBox Skills
 
-A [Claude Code](https://claude.ai/claude-code) skill for building XrmToolBox plugins for Dynamics 365 / Dataverse.
+A [Claude Code](https://claude.ai/claude-code) plugin with skills for building and testing XrmToolBox plugins for Dynamics 365 / Dataverse.
 
-## What It Does
+## Skills
 
-Provides Claude with deep knowledge of XrmToolBox plugin architecture, patterns, and conventions so it can:
+### plugin-dev
 
-- Scaffold new XrmToolBox plugins from the [official template](https://github.com/HurleySk/XrmToolBox-Plugin-Template)
-- Guide you through plugin development with correct patterns (MEF exports, `WorkAsync`, `ExecuteMethod`, `UpdateConnection`)
-- Configure NuGet packaging correctly (DLLs in `Plugins/` folder, dependency bundling)
-- Deploy and test locally
-- Publish to the XrmToolBox Tool Store via nuget.org
+Scaffold, develop, package, and publish XrmToolBox plugins.
+
+```
+/xrmtoolbox:plugin-dev new MyAwesomePlugin
+/xrmtoolbox:plugin-dev deploy
+/xrmtoolbox:plugin-dev pack
+/xrmtoolbox:plugin-dev publish
+/xrmtoolbox:plugin-dev help
+```
+
+- Scaffold from the [official template](https://github.com/HurleySk/XrmToolBox-Plugin-Template) with automated find-and-replace
+- Correct patterns: MEF exports, `WorkAsync`, `ExecuteMethod`, `UpdateConnection`
+- NuGet packaging (DLLs in `Plugins/`)
+- Local deploy and publish to XrmToolBox Tool Store via nuget.org
+
+### testing
+
+Scaffold tests, create mocks, write smoke tests, and run automated UI tests.
+
+```
+/xrmtoolbox:testing scaffold
+/xrmtoolbox:testing mock
+/xrmtoolbox:testing smoke
+/xrmtoolbox:testing ui-test
+/xrmtoolbox:testing help
+```
+
+- Test project scaffolding with proper exclusions
+- Configurable mock `IOrganizationService` with request recording
+- Smoke test templates for CSV loading, deduplication, concurrency, SQLite
+- Automated UI testing via [XrmToolBox Test Harness](https://github.com/HurleySk/xrmtoolbox-testing-toolkit) + FlaUI-MCP
 
 ## Installation
 
-### As a Claude Code Plugin
+### Via Marketplace
+
+```bash
+claude plugin marketplace add HurleySk/claude-plugins-marketplace
+claude plugin install xrmtoolbox
+```
+
+### Direct
 
 ```bash
 claude plugin add HurleySk/claude-xrmtoolbox-skill
 ```
 
-### As a Global Skill (manual)
-
-Copy `skills/xrmtoolbox-plugin/SKILL.md` to `~/.claude/skills/xrmtoolbox-plugin/SKILL.md`.
-
-## Usage
-
-Once installed, use the slash command in any Claude Code session:
-
-```
-/xrmtoolbox-plugin new MyAwesomePlugin
-/xrmtoolbox-plugin deploy
-/xrmtoolbox-plugin pack
-/xrmtoolbox-plugin help
-```
-
-Or just mention XrmToolBox plugin development in conversation and Claude will use this skill's knowledge automatically.
-
 ## Related
 
 - [XrmToolBox Plugin Template](https://github.com/HurleySk/XrmToolBox-Plugin-Template) - GitHub template for scaffolding new plugins
+- [XrmToolBox Testing Toolkit](https://github.com/HurleySk/xrmtoolbox-testing-toolkit) - Standalone test harness for plugin UI testing
 - [XrmToolBox](https://www.xrmtoolbox.com/) - The tool platform by Tanguy Touzard
 
 ## License

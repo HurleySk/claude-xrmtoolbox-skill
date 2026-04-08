@@ -1,7 +1,7 @@
 ---
-name: xrmtoolbox-plugin
+name: plugin-dev
 description: Create, scaffold, and develop XrmToolBox plugins for Dynamics 365 / Dataverse. Use when the user wants to create a new XrmToolBox plugin, add features to an existing one, set up packaging, or deploy locally.
-argument-hint: "[new|deploy|pack|help] [plugin-name]"
+argument-hint: "[new|deploy|pack|publish|help] [plugin-name]"
 ---
 
 # XrmToolBox Plugin Development
