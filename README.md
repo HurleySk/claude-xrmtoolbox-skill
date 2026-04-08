@@ -38,6 +38,21 @@ Scaffold tests, create mocks, write smoke tests, and run automated UI tests.
 - Smoke test templates for CSV loading, deduplication, concurrency, SQLite
 - Automated UI testing via [XrmToolBox Test Harness](https://github.com/HurleySk/xrmtoolbox-testing-toolkit) + FlaUI-MCP
 
+### ui-review
+
+Review plugin UI against best practices and generate improvement recommendations.
+
+```
+/xrmtoolbox:ui-review review [plugin-path]
+/xrmtoolbox:ui-review checklist
+/xrmtoolbox:ui-review help
+```
+
+- Static source analysis of `.cs` and `.Designer.cs` for patterns (WorkAsync, ExecuteMethod, Anchor/Dock, naming)
+- Live UI inspection via Test Harness + FlaUI-MCP (layout, spacing, connection states, accessibility)
+- Structured report with severity levels (Critical, Warning, Suggestion) and A-F grading
+- 29 automated checks across 8 categories (Layout, Connection, Async, Feedback, Data, Input, Error Handling, Accessibility)
+
 ## Installation
 
 ### Via Marketplace
