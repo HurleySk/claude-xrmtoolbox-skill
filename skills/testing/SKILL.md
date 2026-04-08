@@ -359,7 +359,7 @@ static void TestSqliteResumeTracker()
 
 Run automated UI tests against a plugin using the **XrmToolBox Test Harness** and **FlaUI-MCP**. This is a multi-step agent workflow — execute each step in order, checking the result before proceeding.
 
-The test harness ([xrmtoolbox-testing-toolkit](https://github.com/HurleySk/xrmtoolbox-testing-toolkit)) is a standalone WinForms app that hosts any XrmToolBox plugin DLL outside of XrmToolBox, injecting a configurable mock `IOrganizationService`. The harness repo also includes `generate-mockdata.ps1` which auto-analyzes plugin source code and generates starter mock data + a control inventory.
+The test harness ([xrmtoolbox-testing-toolkit](https://github.com/HurleySk/xrmtoolbox-testing-toolkit)) is a standalone WinForms app that hosts any XrmToolBox plugin DLL outside of XrmToolBox, injecting either a configurable mock `IOrganizationService` or a live Dataverse connection via `--connection-string`. The harness repo also includes `generate-mockdata.ps1` which auto-analyzes plugin source code and generates starter mock data + a control inventory.
 
 **Terminology**: Throughout this workflow, `$HARNESS_EXE`, `$HARNESS_REPO`, `$PLUGIN_DIR`, and `$PLUGIN_DLL` are conceptual variables — remember these paths as you discover them in Step 1.
 
@@ -452,7 +452,7 @@ Read `$PLUGIN_DIR/test-mockdata.json`. It contains:
 
 The generated mock data covers discovered patterns. You may need to add entries if:
 - The plugin needs specific attribute values (e.g., a grid expects `friendlyname` on solutions)
-- The plugin uses metadata requests — the generator creates entity metadata stubs for discovered entities via the `entityMetadata` JSON property, but you may need to add attributes or additional entities
+- The plugin uses metadata requests — the generator creates entity metadata stubs for discovered entities via the `entityMetadata` JSON property (including `isIntersect` and `manyToManyRelationships` fields), but you may need to add attributes, relationships, or additional entities
 - The plugin uses FetchXML with specific expected columns
 - Error appears when running: check `calls.json` for unmatched calls and add matching responses
 
@@ -460,7 +460,12 @@ The generated mock data covers discovered patterns. You may need to add entries 
 
 Run the harness in the background. The `--record` path is relative to where you launch the command:
 ```bash
+# Mock service (default — offline testing)
 "$HARNESS_EXE" --plugin "$PLUGIN_DLL" --mockdata "$PLUGIN_DIR/test-mockdata.json" --screenshots "$PLUGIN_DIR/screenshots" --record "$PLUGIN_DIR/calls.json" &
+
+# Live Dataverse connection (if user provides a connection string)
+"$HARNESS_EXE" --plugin "$PLUGIN_DLL" --connection-string "$CONN_STR" --screenshots "$PLUGIN_DIR/screenshots" --record "$PLUGIN_DIR/calls.json" &
+# Or set XRMTOOLBOX_CONNECTION_STRING env var to avoid exposing secrets in process listings
 ```
 
 Wait 3-5 seconds for initialization, then verify via FlaUI-MCP: call `windows_list_windows` and look for a window with title containing `"Test Harness"`. Remember its handle (e.g., `w1`).
@@ -523,7 +528,7 @@ Verify:
 1. Read `calls.json` and identify entries with `"WasMatched": false`
 2. For **CRUD operations** (Create, Retrieve, RetrieveMultiple, Update, Delete, Associate, Disassociate): Add a matching response entry to `test-mockdata.json` with the appropriate `entityName` in the `match` field
 3. For **Execute operations** with a known request type: Add an Execute response entry with `requestType` matching the `RequestTypeName` from `calls.json`
-4. For **metadata requests** (RetrieveAllEntitiesRequest, RetrieveEntityRequest, RetrieveAttributeRequest): These require the `entityMetadata` property in the response JSON (not just `results`). The test harness has a `MetadataJsonConverter` that deserializes entity metadata from JSON. See the sample in `$HARNESS_REPO/samples/basic-mockdata.json` for the format. The `generate-mockdata.ps1` script auto-generates metadata stubs for discovered entities.
+4. For **metadata requests** (RetrieveAllEntitiesRequest, RetrieveEntityRequest, RetrieveAttributeRequest): These require the `entityMetadata` property in the response JSON (not just `results`). The test harness has a `MetadataJsonConverter` that deserializes entity metadata from JSON, including `isIntersect`, `manyToManyRelationships`, and `attributes`. See the sample in `$HARNESS_REPO/samples/basic-mockdata.json` for the format. The `generate-mockdata.ps1` script auto-generates metadata stubs for discovered entities.
 5. Re-run from Step 3 with the updated mock data
 
 #### Step 6: Report
@@ -541,7 +546,7 @@ Summarize the test run:
 - **FlaUI-MCP requires restart after first install**: MCP servers registered mid-session are not available until Claude Code restarts. See Step 1b.
 - **Native file dialogs**: `OpenFileDialog` / `SaveFileDialog` can be automated with `windows_file_dialog`, but if the dialog is non-standard or the associated text field is readonly, this may not work. Pre-fill text fields directly when possible.
 - **Screenshots may capture wrong window**: `windows_screenshot` may occasionally capture the wrong window when multiple windows overlap. Call `windows_focus` before `windows_screenshot` to bring the target to the foreground.
-- **Metadata responses need special JSON format**: `RetrieveAllEntitiesResponse`, `RetrieveEntityResponse`, and similar metadata responses require the `entityMetadata` property in the response JSON (not just `results`). See the debugging loop in Step 5b.
+- **Metadata responses need special JSON format**: `RetrieveAllEntitiesResponse`, `RetrieveEntityResponse`, and similar metadata responses require the `entityMetadata` property in the response JSON (not just `results`). Supported fields include `isIntersect` and `manyToManyRelationships` for N:N relationship plugins. See the debugging loop in Step 5b.
 
 #### Appendix: Extended FlaUI-MCP Tools
 
@@ -572,12 +577,13 @@ Responses are matched in order; first match wins. Use `resultsFile` for large pa
 |------|-------------|---------|
 | `--plugin, -p <path>` | Plugin DLL path (required) | |
 | `--mockdata, -m <path>` | Mock data JSON config | (empty responses) |
+| `--connection-string, -c <string>` | Dataverse connection string (live org). Also reads `XRMTOOLBOX_CONNECTION_STRING` env var | |
 | `--width <px>` | Window width | 1024 |
 | `--height <px>` | Window height | 768 |
 | `--screenshots, -s <dir>` | Screenshot output directory | |
 | `--org <name>` | Organization display name | Mock Organization |
 | `--record, -r <path>` | Record SDK calls to JSON on exit | |
-| `--no-autoconnect` | Don't inject mock service on load | |
+| `--no-autoconnect` | Don't inject service on load | |
 
 #### Appendix: Common Request Type Full Names
 
@@ -609,7 +615,7 @@ Responses are matched in order; first match wins. Use `resultsFile` for large pa
 #### Appendix: Tips
 
 - Press **F12** in the harness window to take a manual screenshot
-- The mock service records every SDK call — `calls.json` is written when the harness window closes
+- Both mock and live services record every SDK call — `calls.json` is written when the harness window closes (live calls also record success/failure status)
 - Use `"fault"` entries in mock data to test error handling paths
 - Use `"delay"` to simulate slow responses and test loading indicators
 
