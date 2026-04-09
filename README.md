@@ -13,13 +13,15 @@ Scaffold, develop, package, and publish XrmToolBox plugins.
 /xrmtoolbox:plugin-dev deploy
 /xrmtoolbox:plugin-dev pack
 /xrmtoolbox:plugin-dev publish
+/xrmtoolbox:plugin-dev submit
 /xrmtoolbox:plugin-dev help
 ```
 
 - Scaffold from the [official template](https://github.com/HurleySk/XrmToolBox-Plugin-Template) with automated find-and-replace
 - Correct patterns: MEF exports, `WorkAsync`, `ExecuteMethod`, `UpdateConnection`
 - NuGet packaging (DLLs in `Plugins/`)
-- Local deploy and publish to XrmToolBox Tool Store via nuget.org
+- Local deploy and publish to nuget.org
+- Submit new plugins to the XrmToolBox Tool Store for approval
 
 ### testing
 

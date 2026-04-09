@@ -1,7 +1,7 @@
 ---
 name: plugin-dev
 description: Create, scaffold, and develop XrmToolBox plugins for Dynamics 365 / Dataverse. Use when the user wants to create a new XrmToolBox plugin, add features to an existing one, set up packaging, or deploy locally.
-argument-hint: "[new|deploy|pack|publish|help] [plugin-name]"
+argument-hint: "[new|deploy|pack|publish|submit|help] [plugin-name]"
 ---
 
 # XrmToolBox Plugin Development
@@ -222,6 +222,36 @@ Full release workflow. Follow every step in order:
 
 **IMPORTANT**: Always ask the user for the NuGet API key before publishing. Never hardcode or store API keys.
 
+**First-time plugins**: After publishing to NuGet, run `submit` to register with the XrmToolBox Tool Store. This is a one-time step — subsequent versions are picked up automatically.
+
+### `submit`
+Submit a plugin to the XrmToolBox Tool Store for the first time. This is required **in addition to** publishing on NuGet — the Tool Store does NOT auto-discover packages.
+
+**Prerequisites**: The plugin must already be published on nuget.org (run `publish` first).
+
+1. **Verify NuGet package is live**: Check `https://www.nuget.org/packages/YOUR_PACKAGE_ID` — it can take a few minutes after push for the package to become available.
+
+2. **Open the XrmToolBox plugin registration portal**: https://www.xrmtoolbox.com/plugins/new/
+   - Sign in with your XrmToolBox account (create one if needed at https://www.xrmtoolbox.com/register/)
+
+3. **Enter the NuGet package ID** (e.g., `SpeedyNtoNAssociatePlugin`) — the portal pulls metadata from nuget.org automatically.
+
+4. **Review the parsed metadata** — verify name, description, icon, and version are correct. Fix any issues in the `.csproj` and republish if needed.
+
+5. **Submit for review** — an XrmToolBox administrator will validate the plugin. This typically takes 1-7 days.
+
+6. **Wait for approval notification** — you'll receive an email when the plugin is approved and visible in the Tool Store.
+
+**Validation checklist** (what reviewers check):
+- Plugin loads without errors in XrmToolBox
+- NuGet package has the `XrmToolBox` tag in `<PackageTags>`
+- Package contains DLLs in `Plugins/` folder (not `lib/`)
+- No bundled assemblies that conflict with XrmToolBox-provided ones
+- Plugin implements `IXrmToolBoxPlugin` via MEF export
+- Icon and metadata are present and reasonable
+
+**After approval**: Future version updates published to NuGet are picked up automatically — you only need to submit once per plugin. Use `publish` for subsequent releases.
+
 ### `help`
 Show this skill's available commands and XrmToolBox plugin development guidance.
 
@@ -249,6 +279,9 @@ When incrementing, bump the last segment for patches/fixes, third segment for fe
 
 ## Publishing to XrmToolBox Tool Store
 
-The XrmToolBox Tool Store automatically discovers packages from nuget.org that have the `XrmToolBox` tag. After publishing with `dotnet nuget push`, it may take a few minutes for the package to appear in the Tool Store.
+Publishing to NuGet is **not enough** to appear in the XrmToolBox Tool Store. New plugins must be submitted and approved through the XrmToolBox registration portal (see the `submit` command). After initial approval, subsequent version updates published to NuGet are picked up automatically.
 
-The package must have the `XrmToolBox` tag in its `.csproj` `<PackageTags>` to be discovered.
+Requirements for Tool Store discovery:
+- The package must have the `XrmToolBox` tag in its `.csproj` `<PackageTags>`
+- The plugin must be registered and approved at https://www.xrmtoolbox.com/plugins/new/
+- DLLs must be in the `Plugins/` folder inside the `.nupkg` (not `lib/`)
