@@ -235,6 +235,22 @@ Full release workflow. Follow every step in order:
 
 **First-time plugins**: After publishing to NuGet, run `submit` to register with the XrmToolBox Tool Store. This is a one-time step — subsequent versions are picked up automatically.
 
+#### CI/CD NuGet Publishing
+
+To automate NuGet publishing on tagged releases, add pack and push steps to `.github/workflows/release.yml`:
+
+```yaml
+- name: Pack NuGet package
+  run: dotnet pack --configuration Release --no-build
+
+- name: Push to NuGet
+  run: dotnet nuget push bin\Release\*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+```
+
+**Setup**: Add `NUGET_API_KEY` as a repository secret (Settings > Secrets and variables > Actions). The key needs "Push new packages and package versions" scope with `*` glob pattern.
+
+**Note**: `--skip-duplicate` prevents failures when re-running a workflow for an already-published version.
+
 ### `submit`
 Submit a plugin to the XrmToolBox Tool Store for the first time. This is required **in addition to** publishing on NuGet — the Tool Store does NOT auto-discover packages.
 
@@ -296,3 +312,25 @@ Requirements for Tool Store discovery:
 - The package must have the `XrmToolBox` tag in its `.csproj` `<PackageTags>`
 - The plugin must be registered and approved at https://www.xrmtoolbox.com/plugins/new/
 - DLLs must be in the `Plugins/` folder inside the `.nupkg` (not `lib/`)
+
+## Refactoring Patterns
+
+When XrmToolBox plugin controls grow beyond ~500 lines, consider these proven extraction patterns:
+
+### Parameter Objects
+When methods exceed 5-6 parameters, bundle configuration into a dedicated class. Example: an `AssociationRunOptions` class replacing 11 positional parameters (relationship, parallelism, bypass, retries, batch size, etc.) with a single options object. Keep parameters with different lifetimes separate (e.g., `CancellationToken`, service instances).
+
+### Runtime Context Objects
+For internal methods that pass the same pool of runtime state (client arrays, locks, counters, stopwatch), bundle them into a private `RunContext` class. This is distinct from the public options object — it holds mutable state that only the engine uses internally.
+
+### Syntax Highlighting Extraction
+XML and SQL colorization logic (regex patterns, color constants, colorize methods) is pure presentation with no dependency on plugin state. Extract to a `SyntaxHighlighter` service class. Keep suppression flags in the control since they gate UI event handlers — pass them via `ref bool`.
+
+### Shared Result Types
+Replace `Tuple<List<T>, int>` and `Tuple<List<T>, int, string>` returns from data services with a named class (e.g., `DataSourceResult` with `Pairs`, `SkippedCount`, `DiagnosticLog`). This eliminates `.Item1`/`.Item2` at call sites and makes the API self-documenting.
+
+### Error Classification Utilities
+When error-checking methods (IsTransient, IsDuplicateKey, IsConnectionError) are scattered across a large engine class, extract them to a static `ErrorClassifier` utility. Move related constants (transient patterns, error strings) with them.
+
+### Preview Logic Consolidation
+When multiple data source tabs (CSV, FetchXML, SQL) have identical post-processing in their `PostWorkCallBack` handlers, extract a shared `HandlePreviewResult` method that sets loaded pairs, populates the preview grid, toggles panel visibility, and updates progress.
