@@ -145,12 +145,12 @@ Essential settings for XrmToolBox plugins:
 
 ### NuGet Packaging
 
-DLLs must go in `Plugins/` (not `lib/`). Include main DLL and any extra dependencies:
+The main plugin DLL must go in `Plugins/` (not `lib/`). Extra dependency DLLs must go in `Plugins/Dependencies/` to avoid the XrmToolBox Tool Store version mismatch validator:
 
 ```xml
 <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="Plugins\" />
-<!-- For each extra dependency DLL: -->
-<None Include="$(OutputPath)\SomeDependency.dll" Pack="true" PackagePath="Plugins\" />
+<!-- Dependency DLLs go in a subfolder to avoid store version mismatch -->
+<None Include="$(OutputPath)\SomeDependency.dll" Pack="true" PackagePath="Plugins\Dependencies\" />
 ```
 
 ## Commands
@@ -300,6 +300,12 @@ When incrementing, bump the last segment for patches/fixes, third segment for fe
 - **Blocking the UI thread**: Always use `WorkAsync()` for Dataverse operations. Never call `Service.Execute()` on the UI thread.
 - **Forgetting `ExecuteMethod()`**: Always wrap button handlers with `ExecuteMethod()` to ensure connection is available.
 - **Wrong NuGet package layout**: DLLs must be in `Plugins/` folder, not `lib/`. Use `IncludeBuildOutput=false` and explicit `Pack` items.
+- **Dependency DLLs at root Plugins/ causing store version mismatch**: The XrmToolBox Tool Store validator scans ALL DLLs at the root `Plugins/` level and compares their assembly version to the NuGet package version. If a third-party dependency (e.g., SQLitePCLRaw.core.dll v2.1.10.2445) is at root `Plugins/`, the store rejects the package with "Nuget package and Assembly must have the same version". **Fix**: Pack dependency DLLs to `Plugins/Dependencies/` (a subfolder), not root `Plugins/`. XrmToolBox loads assemblies from subfolders at runtime. Only your main plugin DLL should be at the root `Plugins/` level. Example:
+  ```xml
+  <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="Plugins\" />
+  <None Include="$(OutputPath)\SomeDependency.dll" Pack="true" PackagePath="Plugins\Dependencies\" />
+  ```
+  Note: The local `deploy.ps1` still puts dependencies directly in the Plugins folder — the subfolder is only needed in the NuGet package for the store validator.
 - **Version mismatch**: Forgetting to update version in BOTH `.csproj` and `AssemblyInfo.cs`. They must always match.
 - **Forgetting to update `<PackageReleaseNotes>`**: The release notes in `.csproj` show up on nuget.org and in the XrmToolBox Tool Store.
 - **Publishing without committing first**: Always commit and push before publishing to NuGet so the source matches the published package.
