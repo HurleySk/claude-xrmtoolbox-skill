@@ -421,7 +421,31 @@ dotnet build "$PLUGIN_DIR"/*.csproj --configuration Release
 ```
 - Remember the full path as `$PLUGIN_DLL`.
 
+**1d. Live testing prerequisites (skip if using mock data).**
+
+If the user provides a connection string or requests live testing:
+
+1. **Check the plugin repo for test data scripts** before creating entities manually:
+   ```bash
+   find "$PLUGIN_DIR" -name "*.ps1" -o -name "*.sh" | grep -iE "test|seed|data|create" 2>/dev/null
+   ```
+   Many plugins include scripts like `test/create-test-data.ps1` or `scripts/seed-data.ps1`. Run these first.
+
+2. **Connection string format** — use this OAuth template with the well-known first-party AppId:
+   ```
+   AuthType=OAuth;Url=https://<org>.crm.dynamics.com;AppId=51f81489-12ee-4a9e-aaae-a2591f45987d;RedirectUri=app://58145B91-0C36-4500-8554-080854F2AC97;LoginPrompt=Auto
+   ```
+   `LoginPrompt=Auto` reuses cached browser tokens. Set via `XRMTOOLBOX_CONNECTION_STRING` env var to avoid exposing secrets in process listings.
+
+3. **Identify the correct org** if the user has multiple environments:
+   ```bash
+   pac org list
+   pac org select --environment <environment-id>
+   ```
+
 #### Step 2: Analyze the Plugin
+
+> **Mock vs Live:** If using `--connection-string` (live Dataverse), skip Step 2a — mock data is not needed. Still run `generate-mockdata.ps1` for the control inventory (`test-control-inventory.json`), or proceed to Step 3 and use `windows_snapshot` to discover controls interactively.
 
 Use the `generate-mockdata.ps1` script to automatically discover controls, SDK patterns, and entity names.
 
@@ -465,7 +489,7 @@ Run the harness in the background. The `--record` path is relative to where you 
 "$HARNESS_EXE" --plugin "$PLUGIN_DLL" --mockdata "$PLUGIN_DIR/test-mockdata.json" --screenshots "$PLUGIN_DIR/screenshots" --record "$PLUGIN_DIR/calls.json" --suppress-dialogs &
 
 # Live Dataverse connection (if user provides a connection string)
-"$HARNESS_EXE" --plugin "$PLUGIN_DLL" --connection-string "$CONN_STR" --screenshots "$PLUGIN_DIR/screenshots" --record "$PLUGIN_DIR/calls.json" --suppress-dialogs &
+"$HARNESS_EXE" --plugin "$PLUGIN_DLL" --connection-string "$CONN_STR" --screenshots "$PLUGIN_DIR/screenshots" --record "$PLUGIN_DIR/calls.json" --suppress-dialogs --dialog-button no &
 # Or set XRMTOOLBOX_CONNECTION_STRING env var to avoid exposing secrets in process listings
 ```
 
@@ -495,7 +519,7 @@ FlaUI-MCP uses a snapshot-and-ref model: call `windows_snapshot` to get the acce
 The snapshot returns a text tree of all controls with their names and refs. Cross-reference against your control inventory from Step 2b — verify key controls are present.
 
 **4b. Set up input controls** (from the inventory, category = input-*):
-- **Dropdowns (cbo/cmb)**: `windows_fill` to clear the text, then `windows_type` with `submit: true` to type the value and press Enter — this triggers `SelectedIndexChanged` for cascading combos. Note: `windows_fill` alone sets text but does NOT fire selection events. Alternatively, `windows_click` to expand, re-snapshot to see items, `windows_click` on the item
+- **Dropdowns (cbo/cmb)**: `windows_type` with `submit: true` to type the value and press Enter — this triggers `SelectedIndexChanged` for cascading combos. **Never use `windows_fill` on ComboBox controls** — it clears the selected item binding and breaks `SelectedIndexChanged` events. Alternatively, `windows_click` to expand, re-snapshot to see items, `windows_click` on the item.
 - **TextBoxes (txt)**: `windows_fill` with a test value appropriate to the control name (e.g., `txtFilter` → `"test"`)
 - **CheckBoxes (chk)**: `windows_click` to toggle if needed
 - **Numerics (nud)**: Leave at defaults unless testing specific values
@@ -507,6 +531,7 @@ The snapshot returns a text tree of all controls with their names and refs. Cros
 - Wait for a DataGridView to populate: `windows_wait_for_element` with `automationId` of the grid and `condition: "has_text"`
 - Wait for a status label to update: `windows_wait_for_element` with the label's `automationId` and `condition: "has_text"`
 - Wait for a button to re-enable: `windows_wait_for_element` with the button's `automationId` and `condition: "enabled"`
+- **Split-container children**: Controls inside a `SplitContainer` may not appear in the UIA tree until the container is populated or expanded. If `windows_wait_for_element` times out for a control you expect to exist, try waiting with `condition: "exists"` first, or use a time-based fallback with `windows_screenshot` verification.
 - Fallback: if no clear condition, wait 2-3 seconds then re-snapshot
 
 To read DataGridView contents, use `windows_get_table_data` with the grid's ref — it returns headers and rows as a formatted table, much cleaner than parsing the snapshot tree.
@@ -581,6 +606,7 @@ Summarize the test run:
 - **Screenshots may capture wrong window**: `windows_screenshot` now auto-focuses the window when a handle is provided, but may still occasionally capture the wrong window with overlapping windows. Call `windows_focus` before `windows_screenshot` if issues persist.
 - **ComboBox controls**: **Never use `windows_fill` on ComboBox controls** — it clears the selected item binding and breaks `SelectedIndexChanged` events. Only use `windows_type` with `submit: true`, or expand with `windows_click` then click the item. `windows_get_text` on ComboBox now uses the Selection pattern and LegacyIAccessible for more reliable value extraction.
 - **DataGridView cell values**: `windows_get_table_data` now falls back to the LegacyIAccessible pattern for WinForms DataGridView cells that don't expose values via the standard Value pattern.
+- **`--suppress-dialogs` button selection**: By default, `--suppress-dialogs` clicks the first button of MessageBox dialogs (typically "OK" or "Yes"). For Yes/No/Cancel dialogs (e.g., resume prompts), this means "Yes" is selected, which may silently alter test results. Use `--dialog-button no` or `--dialog-button cancel` to control this behavior. The `[DialogSuppressor]` log lines on stderr show which dialog was dismissed, and dialog screenshots are saved to the `--screenshots` directory if configured.
 - **Metadata responses need special JSON format**: `RetrieveAllEntitiesResponse`, `RetrieveEntityResponse`, and similar metadata responses require the `entityMetadata` property in the response JSON (not just `results`). Supported fields include `isIntersect` and `manyToManyRelationships` for N:N relationship plugins. See the debugging loop in Step 5b.
 
 #### Appendix: Extended FlaUI-MCP Tools
@@ -606,6 +632,27 @@ These tools are available in the HurleySk fork of FlaUI-MCP (installed via the h
 
 Responses are matched in order; first match wins. Use `resultsFile` for large payloads (metadata responses) in separate JSON files.
 
+#### Appendix: FetchXML N:N Query Format
+
+For plugins that query many-to-many (N:N) relationships, the FetchXML must use `link-entity` with `intersect="true"` — intersect entities cannot be queried directly as the root entity. Example:
+
+```xml
+<fetch>
+  <entity name="spdy_testwidget">
+    <attribute name="spdy_testwidgetid" />
+    <link-entity name="spdy_widget_gadget" from="spdy_testwidgetid" to="spdy_testwidgetid" intersect="true">
+      <link-entity name="spdy_testgadget" from="spdy_testgadgetid" to="spdy_testgadgetid">
+        <attribute name="spdy_testgadgetid" />
+      </link-entity>
+    </link-entity>
+  </entity>
+</fetch>
+```
+
+Do NOT use `<fetch top="N">` — this conflicts with plugins that add their own pagination via `count`. Use `<condition>` filters instead to limit results.
+
+Reference: [Join tables using FetchXml](https://learn.microsoft.com/en-us/power-apps/developer/data-platform/fetchxml/join-tables)
+
 #### Appendix: CLI Options
 
 | Flag | Description | Default |
@@ -618,7 +665,8 @@ Responses are matched in order; first match wins. Use `resultsFile` for large pa
 | `--screenshots, -s <dir>` | Screenshot output directory | |
 | `--org <name>` | Organization display name | Mock Organization |
 | `--record, -r <path>` | Record SDK calls to JSON (auto-flushes every 2s) | |
-| `--suppress-dialogs` | Auto-dismiss modal MessageBox dialogs (logs text to stderr). Prevents plugin error dialogs from blocking FlaUI UIA operations. Does NOT dismiss file dialogs. | |
+| `--suppress-dialogs` | Auto-dismiss modal MessageBox dialogs (logs text to stderr, clicks first button by default). Use `--dialog-button` to control which button is clicked. Does NOT dismiss file dialogs. | |
+| `--dialog-button <text>` | Which button to click in suppressed dialogs. Values: `first` (default), `last`, `no`, `cancel`, or exact button text. Only meaningful with `--suppress-dialogs`. For plugins with Yes/No/Cancel resume dialogs, use `--dialog-button no` to start fresh. | `first` |
 | `--no-autoconnect` | Don't inject service on load | |
 
 #### Appendix: Common Request Type Full Names
