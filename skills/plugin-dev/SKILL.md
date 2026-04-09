@@ -215,10 +215,21 @@ Full release workflow. Follow every step in order:
    `Version x.y.z.w: <summary of changes>`
 6. **Push**: `git push`
 7. **Create GitHub release**: `gh release create vx.y.z.w --title "vx.y.z.w" --notes "<changelog>"`
-8. **Publish to NuGet**:
+8. **Publish to NuGet** — try the CLI first:
    ```bash
    dotnet nuget push bin\Release\YourPlugin.x.y.z.w.nupkg --api-key YOUR_KEY --source https://api.nuget.org/v3/index.json
    ```
+   **If the CLI returns 403**: This is a known nuget.org issue (NuGet/Home#13403) where valid API keys are rejected via CLI, especially for new packages. Verify the API key has:
+   - Scope: **"Push new packages and package versions"** (not "Push only new package versions")
+   - Glob pattern: `*` (must be wildcard for packages that don't exist on nuget.org yet)
+
+   **If CLI still fails after verifying the key**, fall back to the web upload:
+   1. Go to https://www.nuget.org/packages/manage/upload
+   2. Browse to the `.nupkg` file
+   3. Review the metadata on the Verify page
+   4. Click Submit
+
+   The web upload authenticates via browser session and bypasses the API key entirely.
 
 **IMPORTANT**: Always ask the user for the NuGet API key before publishing. Never hardcode or store API keys.
 
