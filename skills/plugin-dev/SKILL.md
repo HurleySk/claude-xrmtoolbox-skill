@@ -160,6 +160,11 @@ Based on the argument provided:
 ### `new [plugin-name]`
 Scaffold a new XrmToolBox plugin from the GitHub template:
 
+0. **Verify prerequisites**:
+   - .NET SDK: `dotnet --version` (must be installed)
+   - GitHub CLI: `gh --version` (must be installed and authenticated)
+   If either is missing, instruct the user to install it before proceeding.
+
 1. **Create the repo** from the template:
    ```bash
    gh repo create YOUR_GITHUB_USERNAME/MyXrmToolBoxPlugin --template HurleySk/XrmToolBox-Plugin-Template --public --clone
@@ -203,7 +208,7 @@ Run `.\deploy.ps1 -Force` to build and deploy to local XrmToolBox.
 2. Verify the `.nupkg` contains the DLL in `Plugins/`
 
 ### `publish`
-Full release workflow. Follow every step in order:
+Full release workflow. Verify prerequisites first: `dotnet --version` and `gh --version` must both succeed. Follow every step in order:
 
 1. **Increment the version** in BOTH locations (they must match):
    - `.csproj`: `<Version>x.y.z.w</Version>`
@@ -280,7 +285,38 @@ Submit a plugin to the XrmToolBox Tool Store for the first time. This is require
 **After approval**: Future version updates published to NuGet are picked up automatically — you only need to submit once per plugin. Use `publish` for subsequent releases.
 
 ### `help`
-Show this skill's available commands and XrmToolBox plugin development guidance.
+
+Show available commands:
+
+```
+XrmToolBox Plugin Development Commands:
+
+  /xrmtoolbox:plugin-dev new [plugin-name]
+    Scaffold a new XrmToolBox plugin from the official GitHub template
+    with automated find-and-replace and file renaming.
+
+  /xrmtoolbox:plugin-dev deploy
+    Build and deploy plugin to local XrmToolBox installation.
+
+  /xrmtoolbox:plugin-dev pack
+    Create a NuGet package (.nupkg) with correct Plugins/ layout.
+
+  /xrmtoolbox:plugin-dev publish
+    Full release workflow: version bump, build, pack, commit, push,
+    GitHub release, and NuGet publish.
+
+  /xrmtoolbox:plugin-dev submit
+    Register a newly published plugin with the XrmToolBox Tool Store
+    (one-time step per plugin).
+
+  /xrmtoolbox:plugin-dev help
+    Show this help message.
+
+Prerequisites:
+  - .NET SDK (for build, pack, publish)
+  - GitHub CLI (for repo creation, releases)
+  - NuGet.org account (for publishing)
+```
 
 ## Version Management
 
@@ -318,6 +354,13 @@ Requirements for Tool Store discovery:
 - The package must have the `XrmToolBox` tag in its `.csproj` `<PackageTags>`
 - The plugin must be registered and approved at https://www.xrmtoolbox.com/plugins/new/
 - DLLs must be in the `Plugins/` folder inside the `.nupkg` (not `lib/`)
+
+## Known Limitations
+
+- **NuGet CLI 403 errors**: The `dotnet nuget push` command sometimes returns 403 for valid API keys, especially for new packages. This is a known nuget.org issue (NuGet/Home#13403). The `publish` command documents a web upload fallback.
+- **Windows only**: XrmToolBox is a Windows desktop application targeting .NET Framework 4.8. This skill cannot be used on macOS or Linux.
+- **No SDK version upgrade command**: There is no `upgrade` or `migrate` command for bumping XrmToolBox SDK dependencies in existing plugins. Dependency upgrades must be done manually in the `.csproj`.
+- **Template assumes GitHub**: The `new` command uses `gh repo create` from a GitHub template. Users on other Git hosting platforms must clone manually.
 
 ## Refactoring Patterns
 

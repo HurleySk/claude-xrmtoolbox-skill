@@ -16,5 +16,6 @@
     "plugin",
     "testing",
     "ui-review"
-  ]
+  ],
+  "platforms": ["win32"]
 }

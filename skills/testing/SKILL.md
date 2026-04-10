@@ -399,7 +399,7 @@ This builds FlaUI-MCP from the harness repo's submodule (or clones the fork), pu
 
 > **IMPORTANT — Restart Required**: After installing or updating FlaUI-MCP, Claude Code **must be restarted** so the MCP server relaunches with the new binary. If you just ran `setup-flaui-mcp.ps1`, **STOP HERE** and instruct the user to restart Claude Code, then re-run `/testing ui-test`. Do NOT proceed to Step 3 — FlaUI-MCP tools will not work in the current session.
 
-- **Verify after restart**: Confirm FlaUI-MCP is loaded by checking that `windows_list_windows` is available as a tool.
+- **Verify after restart**: Confirm FlaUI-MCP is loaded by attempting to call `windows_list_windows`. If the call succeeds (returns a list of windows), FlaUI-MCP is working. If the tool is not found or errors, Claude Code needs a restart.
 
 **1c. Locate the plugin DLL.**
 
@@ -577,7 +577,16 @@ Verify:
    }
    ```
    The `value` can be any supported type (string, GUID, EntityReference, OptionSetValue, etc.).
-5. Re-run from Step 3 with the updated mock data
+7. Re-run from Step 3 with the updated mock data
+
+**Add test artifacts to .gitignore** if not already present — screenshots may contain sensitive data from live connections:
+```
+# XrmToolBox test artifacts
+test-mockdata.json
+test-control-inventory.json
+calls.json
+screenshots/
+```
 
 #### Step 6: Report
 
@@ -706,7 +715,36 @@ Reference: [Join tables using FetchXml](https://learn.microsoft.com/en-us/power-
 
 ### `help`
 
-Show this skill's available commands and XrmToolBox plugin testing guidance.
+Show available commands:
+
+```
+XrmToolBox Plugin Testing Commands:
+
+  /xrmtoolbox:testing scaffold
+    Create a test project for an existing XrmToolBox plugin with
+    proper exclusions and a basic smoke test runner.
+
+  /xrmtoolbox:testing mock
+    Create a mock IOrganizationService for unit testing without
+    a Dataverse connection. Includes specialized mocks for
+    AssociateRequest and ExecuteMultipleRequest testing.
+
+  /xrmtoolbox:testing smoke
+    Write smoke tests for common plugin components: CSV loading,
+    deduplication, thread safety, SQLite persistence.
+
+  /xrmtoolbox:testing ui-test
+    Run automated UI tests via the XrmToolBox Test Harness and
+    FlaUI-MCP. Supports mock and live Dataverse connections.
+
+  /xrmtoolbox:testing help
+    Show this help message.
+
+Prerequisites (auto-installed if missing):
+  - .NET SDK (for building test projects)
+  - XrmToolBox Test Harness (for ui-test)
+  - FlaUI-MCP (for ui-test, requires Claude Code restart after first install)
+```
 
 ## What NOT to Test
 

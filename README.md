@@ -55,6 +55,21 @@ Review plugin UI against best practices and generate improvement recommendations
 - Structured report with severity levels (Critical, Warning, Suggestion) and A-F grading
 - 29 automated checks across 8 categories (Layout, Connection, Async, Feedback, Data, Input, Error Handling, Accessibility)
 
+## Typical Workflow
+
+```
+plugin-dev new  →  plugin-dev deploy  →  testing scaffold  →  testing smoke
+                                      →  testing ui-test   →  ui-review review
+                                      →  plugin-dev pack   →  plugin-dev publish  →  plugin-dev submit
+```
+
+1. **Scaffold** a new plugin with `plugin-dev new`
+2. **Develop** features, deploy locally with `plugin-dev deploy`
+3. **Test** with mocks and smoke tests (`testing scaffold`, `testing mock`, `testing smoke`)
+4. **UI test** interactively with the test harness (`testing ui-test`)
+5. **Review** UI against best practices (`ui-review review`)
+6. **Package and publish** to NuGet and the Tool Store (`plugin-dev pack`, `plugin-dev publish`, `plugin-dev submit`)
+
 ## Installation
 
 ### Via Marketplace

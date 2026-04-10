@@ -60,7 +60,7 @@ powershell -ExecutionPolicy Bypass -File "$HARNESS_REPO\setup-flaui-mcp.ps1"
 
 > **IMPORTANT — Restart Required**: After installing FlaUI-MCP for the first time, Claude Code **must be restarted** before the `flaui-mcp` MCP tools become available. If you just ran `setup-flaui-mcp.ps1`, **STOP HERE** and instruct the user to restart Claude Code, then re-run `/xrmtoolbox:ui-review review`. Do NOT proceed — FlaUI-MCP tools will not work in the current session.
 
-- **Verify after restart**: Confirm FlaUI-MCP is loaded by checking that `windows_list_windows` is available as a tool.
+- **Verify after restart**: Confirm FlaUI-MCP is loaded by attempting to call `windows_list_windows`. If the call succeeds (returns a list of windows), FlaUI-MCP is working. If the tool is not found or errors, Claude Code needs a restart.
 
 **1c. Locate the plugin DLL.**
 
@@ -225,7 +225,7 @@ The harness auto-connects unless `--no-autoconnect` was passed. The connection h
    - **TextBoxes** (category `input-text`): `windows_fill` with a test value appropriate to the control name (e.g., `txtFilter` → `"test"`, `txtFilePath` → a temp file path).
    - **CheckBoxes** (category `input-toggle`): Leave at defaults unless they gate the primary action.
 2. Click the `primaryAction` button from the control inventory using `windows_click`.
-3. Wait for completion: `sleep 3`, then call `windows_snapshot`. If the UI still shows a loading state (e.g., progress bar visible, button still disabled), wait another 2 seconds and re-snapshot. Repeat up to 3 times.
+3. Wait for completion using `windows_wait_for_element`: wait for the primary action button to re-enable (`condition: "enabled"`), or for a DataGridView to populate (`condition: "has_text"`), or for a status label to update. Fallback: if no clear condition, wait 3 seconds then re-snapshot, repeating up to 3 times if still loading.
 4. Call `windows_screenshot` — save as "03-populated-state".
 5. Call `windows_snapshot` — capture the populated tree.
 
@@ -259,13 +259,22 @@ If the plugin has error handling paths:
 
 Call `windows_close` on the harness window handle so it writes `calls.json`.
 
-**5b. Check SDK call recording (supplementary).**
+**5b. Add test artifacts to .gitignore** if not already present — screenshots may contain sensitive data from live connections:
+```
+# XrmToolBox test artifacts
+test-mockdata.json
+test-control-inventory.json
+calls.json
+screenshots/
+```
+
+**5d. Check SDK call recording (supplementary).**
 
 Read `$PLUGIN_DIR/calls.json` if it exists. Note:
 - Whether the plugin made SDK calls during the review (validates that mock data worked)
 - Any unmatched calls that might indicate missing mock data
 
-**5c. Generate the structured review report.**
+**5e. Generate the structured review report.**
 
 Compile all findings from Steps 2 and 4 into this format:
 
@@ -396,6 +405,14 @@ Prerequisites (auto-installed if missing):
   - FlaUI-MCP (requires Claude Code restart after first install)
   - Plugin DLL (auto-built if not found)
 ```
+
+## Known Limitations
+
+- **Requires built plugin DLL**: The live UI review (Steps 3-4) requires a Release-built plugin DLL. If the plugin doesn't compile, only static analysis (Step 2) is possible.
+- **FlaUI-MCP requires restart after install/update**: MCP servers registered mid-session are not available until Claude Code restarts. See Step 1b.
+- **Windows only**: XrmToolBox is a Windows desktop application. This skill cannot be used on macOS or Linux.
+- **Static analysis is pattern-based**: The source code checks use text pattern matching (searching for `WorkAsync(`, `ExecuteMethod(`, etc.), not AST parsing. Unusual code patterns or heavily abstracted code may produce false negatives.
+- **Live review needs mock data**: Without adequate mock data, the plugin may not populate its UI, limiting what the live review can assess. Use `generate-mockdata.ps1` and augment as needed.
 
 ## Appendix: Check ID Reference
 
